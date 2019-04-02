@@ -9,6 +9,7 @@ module Spar.Data.Instances
       -- * Raw database types
       VerdictFormatRow
     , VerdictFormatCon(..)
+    , CqlScimUser(..)
       -- ** Conversions
     , fromVerdictFormat
     , toVerdictFormat
@@ -27,6 +28,7 @@ import URI.ByteString
 import qualified Data.Aeson as Aeson
 import qualified SAML2.WebSSO as SAML
 import qualified Web.Scim.Class.User as Scim
+import qualified Web.Scim.Schema.User as Scim
 
 
 instance Cql SAML.XmlText where
@@ -86,9 +88,16 @@ toVerdictFormat (VerdictFormatConMobile, Just succredir, Just errredir) = Just $
 toVerdictFormat _                                                       = Nothing
 
 deriving instance Cql ScimToken
-instance (FromJSON extra, ToJSON extra) => Cql (Scim.StoredUser extra) where
-    ctype = Tagged BlobColumn
-    toCql = CqlBlob . Aeson.encode
 
-    fromCql (CqlBlob t) = Aeson.eitherDecode t
+-- | Wrapper to work around complications with type synonym family application in instances.
+newtype CqlScimUser tag = CqlScimUser { fromCqlScimUser :: Scim.StoredUser tag }
+
+instance ( extra ~ Scim.UserExtra tag, uid ~ Scim.UserId tag
+         , FromJSON extra, ToJSON extra
+         , FromJSON uid, ToJSON uid
+         ) => Cql (CqlScimUser tag) where
+    ctype = Tagged BlobColumn
+    toCql = CqlBlob . Aeson.encode . fromCqlScimUser
+
+    fromCql (CqlBlob t) = CqlScimUser <$> Aeson.eitherDecode t
     fromCql _           = fail "Scim.StoredUser: expected CqlBlob"

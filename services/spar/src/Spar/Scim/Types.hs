@@ -38,8 +38,10 @@ import Spar.Types
 import qualified Data.HashMap.Strict              as HM
 import qualified Data.Text                        as T
 import qualified SAML2.WebSSO                     as SAML
-import qualified Web.Scim.Schema.User             as Scim.User
+import qualified Web.Scim.Class.Auth              as Scim.Auth
+import qualified Web.Scim.Class.Group             as Scim.Group
 import qualified Web.Scim.Schema.Schema           as Scim
+import qualified Web.Scim.Schema.User             as Scim.User
 import qualified Web.Scim.Server                  as Scim
 
 
@@ -55,6 +57,20 @@ userExtraURN = "urn:wire:scim:schemas:profile:1.0"
 
 ----------------------------------------------------------------------------
 -- @hscim@ extensions and wrappers
+
+data SparTag
+
+instance Scim.User.UserTypes SparTag where
+  type UserId SparTag = UserId
+  type UserExtra SparTag = ScimUserExtra
+
+instance Scim.Group.GroupTypes SparTag where
+  type GroupId SparTag = ()
+
+instance Scim.Auth.AuthTypes SparTag where
+  type AuthData SparTag = ScimToken
+  type AuthInfo SparTag = ScimTokenInfo
+
 
 -- | Extra Wire-specific data contained in a SCIM user profile.
 data ScimUserExtra = ScimUserExtra
@@ -105,7 +121,7 @@ parseRichInfo v =
 -- the 'Scim.User.User' and b) be valid in regard to our own user schema requirements (only
 -- certain characters allowed in handles, etc).
 data ValidScimUser = ValidScimUser
-  { _vsuUser          :: Scim.User.User ScimUserExtra
+  { _vsuUser          :: Scim.User.User SparTag
 
     -- SAML SSO
   , _vsuSAMLUserRef   :: SAML.UserRef
@@ -189,7 +205,7 @@ instance ToJSON ScimTokenList where
 -- Servant APIs
 
 type APIScim
-     = OmitDocs :> "v2" :> Scim.SiteAPI ScimToken ScimUserExtra
+     = OmitDocs :> "v2" :> Scim.SiteAPI SparTag
   :<|> "auth-tokens" :> APIScimToken
 
 type APIScimToken
