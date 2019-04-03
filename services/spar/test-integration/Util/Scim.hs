@@ -446,7 +446,7 @@ instance IsUser ValidScimUser where
     maybeSubject = Just (Just . view (vsuSAMLUserRef . SAML.uidSubject))
     maybeSubjectRaw = Just (SAML.shortShowNameID . view (vsuSAMLUserRef . SAML.uidSubject))
 
-instance IsUser (Scim.StoredUser ScimUserExtra) where
+instance IsUser (Scim.StoredUser SparTag) where
     maybeUserId = Just scimUserId
     maybeHandle = maybeHandle <&> \f -> f . Scim.value . Scim.thing
     maybeName = maybeName <&> \f -> f . Scim.value . Scim.thing
@@ -454,7 +454,7 @@ instance IsUser (Scim.StoredUser ScimUserExtra) where
     maybeSubject = maybeSubject <&> \f -> f . Scim.value . Scim.thing
     maybeSubjectRaw = maybeSubjectRaw <&> \f -> f . Scim.value . Scim.thing
 
-instance IsUser (Scim.User.User ScimUserExtra) where
+instance IsUser (Scim.User.User SparTag) where
     maybeUserId = Nothing
     maybeHandle = Just (Just . Handle . Scim.User.userName)
     maybeName = Just (fmap Name . Scim.User.displayName)

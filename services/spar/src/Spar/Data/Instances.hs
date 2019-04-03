@@ -89,10 +89,41 @@ toVerdictFormat _                                                       = Nothin
 
 deriving instance Cql ScimToken
 
--- | Wrapper to work around complications with type synonym family application in instances.
+-- | Wrapper to work around complications with type synonym family application in the 'Cql'
+-- instance.
+--
+-- Background: 'SparTag' is used to instantiate the open type families in the classes
+-- @Scim.UserTypes@, @Scim.GroupTypes@, @Scim.AuthTypes@.  Those type families are not
+-- injective, and in general they shouldn't be: it should be possible to map two tags to
+-- different user ids, but the same extra user info.  This makes the type of the 'Cql'
+-- instance for @'Scim.StoredUser' tag@ undecidable: if the type checker encounters a
+-- constraint that gives it the user id and extra info, it can't compute the tag from that to
+-- look up the instance.
+--
+-- Possible solutions:
+--
+-- * what we're doing here: wrap the type synonyms we can't instantiate into newtypes in the
+--   code using hscim.
+
+-- * do not instantiate the type synonym, but its value (in this case
+--   @Web.Scim.Schema.Meta.WithMeta (Web.Scim.Schema.Common.WithId (Id U) (Scim.User tag))@
+--
+-- * Use newtypes instead type in hscim.  This will carry around the tag as a data type rather
+--   than applying it, which in turn will enable ghc to type-check instances like @Cql
+--   (Scim.StoredUser tag)@.
+--
+-- * make the type classes parametric in not only the tag, but also all the values of the type
+--   families, and add functional dependencies, like this: @class UserInfo tag uid extrainfo |
+--   (uid, extrainfo) -> tag, tag -> (uid, extrainfo)@.  this will make writing the instances
+--   only a little more awkward, but the rest of the code should change very little, as long
+--   as we just apply the type families rather than explicitly imposing the class constraints.
+--
+-- * given a lot of time: extend ghc with something vaguely similar to @AllowAmbigiousTypes@,
+--   where the instance typechecks, and non-injectivity errors are raised when checking the
+--   constraint that "calls" the instance.  :)
 newtype CqlScimUser tag = CqlScimUser { fromCqlScimUser :: Scim.StoredUser tag }
 
-instance ( extra ~ Scim.UserExtra tag, uid ~ Scim.UserId tag
+instance ( Scim.UserTypes tag, uid ~ Scim.UserId tag, extra ~ Scim.UserExtra tag
          , FromJSON extra, ToJSON extra
          , FromJSON uid, ToJSON uid
          ) => Cql (CqlScimUser tag) where
